@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.http import HttpResponse
 from rango.models import Category, Page
-from rango.forms import CategoryForm, PageForm
+from rango.forms import CategoryForm, PageForm, UserForm, UserProfileForm
 
 def index(request):
     # Query the database for a list of ALL categories currently stored.
@@ -83,3 +83,46 @@ def add_page(request, category_name_slug):
 
 def about(request):
     return render(request, 'rango/about.html', None)
+
+def register(request):
+    # Boolean value to tell the template whether
+    # registration was successful
+    registered = False
+    
+    if request.method == 'POST':
+        user_form = UserForm(request.POST)
+        profile_form = UserProfileForm(request.POST)
+        
+        if user_form.is_valid() and profile_form.is_valid():
+            user = user_form.save()
+            
+            # Hash the password with set_password.
+            # Once hashed, we can update the user object.
+            user.set_password(user.password)
+            user.save()
+            
+            # Since we need to set the user attribute ourselves,
+            # we set commit=False. This delays saving the model
+            # until we are ready to avoid integrity problems.
+            profile = profile_form.save(commit=False)
+            profile.user = user
+            
+            if 'picture' in request.FILES:
+                profile.picture = request.FILES['picture']
+                
+            profile.save()
+            
+            registered = True
+        else:
+            print(user_form.errors, profile_form.errors)
+    else:
+        # Not an HTTP POST, so render the form using two ModelForm instances.
+        # These forms will be blank, ready for user input.
+        user_form = UserForm()
+        profile_form = UserProfileForm()
+        
+    return render(request,
+                  'rango/register.html',
+                  context={'user_form':user_form,
+                           'profile_form':profile_form,
+                           'registered':registered})
